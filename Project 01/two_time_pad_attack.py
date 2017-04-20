@@ -129,7 +129,7 @@ def crib_drag(plaintext1, plaintext2, index1, index2):
     print('*****************************')
 
     # checks if the plaintext is finished
-    if len(plaintext1) >= CIPHER_LEN:  # or len(plaintext2) >= CIPHER_LEN:
+    if len(plaintext1) >= CIPHER_LEN:
         return plaintext1, plaintext2
 
     # checks last word in plaintext1 for its completion
@@ -147,15 +147,15 @@ def crib_drag(plaintext1, plaintext2, index1, index2):
 
     # for each possible word, add a space to it and xor it with the ciphertext
     for word in possible_words:
-        new_word = word[len(last_word):] + ' '
-        crib_xor = strings_xor(list((plaintext1 + new_word).encode()),
-                               CIPHER_XOR[:index1+len(new_word)])
+        word = word[len(last_word):] + ' '
+        crib_xor = strings_xor(list((plaintext1 + word).encode()),
+                               CIPHER_XOR[:index1+len(word)])
 
         # if the XORed text is valid according to the dictionary
         if check_in_dictionary(crib_xor):
 
             # update plaintexts
-            plain1 = plaintext1 + new_word
+            plain1 = plaintext1 + word
             plain2 = crib_xor
 
             print("%s" % plain1)
@@ -163,8 +163,8 @@ def crib_drag(plaintext1, plaintext2, index1, index2):
 
             # recursively crib drags the new plaintexts
             new_plain1, new_plain2 = crib_drag(plain2, plain1,
-                                               index2 + len(new_word),
-                                               index1 + len(new_word))
+                                               index2 + len(word),
+                                               index1 + len(word))
 
             # end of recursion
             if new_plain1 is not None and new_plain2 is not None:
