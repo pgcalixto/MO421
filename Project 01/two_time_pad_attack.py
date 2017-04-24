@@ -173,17 +173,6 @@ def crib_drag(plaintext1, plaintext2, index1, index2):
     return None, None
 
 
-def create_plain_file(plaintext, filepath):
-    """Creates a file containing the plaintext content
-
-    Args:
-        plaintext (str): Plaintext content
-        filepath (str): File path to be created/written
-    """
-    with open(filepath, 'w') as plain_file:
-        plain_file.write(plaintext)
-
-
 def find_key(plaintext1, plaintext2):
     """Finds the key given the 2 plaintexts and ciphertexts
 
