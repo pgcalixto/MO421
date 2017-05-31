@@ -45,28 +45,93 @@ func affineDec(image []byte, affineA, affineB int) (decImage []byte) {
     return
 }
 
-func teaEnc(image []byte, key [4]uint32, encOrDec bool) (resultImage []byte) {
+// teaEnc performs the Tiny Encryption Algorithm
+func teaEnc(image []byte, key [4]uint32, encOrDec bool, method bool) (imageByte []byte) {
 
-    imageUint32 := byteArrayToUint32(image)
-    var imageSlice [2]uint32
+    plainUint32 := byteArrayToUint32(image, binary.BigEndian)
+    cipherUint32 := make([]uint32, 2 + len(plainUint32))
+    var slice32 [2]uint32
 
-    // encrypt/decrypt each pair of 32-bit elements using the TEA encryption
-    for i := 0; i < len(imageUint32); i += 2 {
-        imageSlice[0] = imageUint32[i]
-        imageSlice[1] = imageUint32[i+1]
-        if encOrDec {
-            imageSlice = teaEncRounds(imageSlice, key)
-        } else {
-            imageSlice = teaDecRounds(imageSlice, key)
-        }
-        imageUint32[i] = imageSlice[0]
-        imageUint32[i+1] = imageSlice[1]
+    if method {
+        // CFB initialization vector
+        cipherUint32[0] = 0xFECDAB98
+        cipherUint32[1] = 0x76543210
+    } else {
+        // ECB unused data
+        cipherUint32[0] = 0x00000000
+        cipherUint32[1] = 0x00000000
     }
 
-    resultImage = uint32ArrayToByte(imageUint32)
+    // encrypt/decrypt each pair of 32-bit elements using the TEA encryption
+    for i := 0; i < len(plainUint32); i += 2 {
+
+        if method {
+            // Cipher feedback mode
+            if encOrDec {
+                slice32 = cfbEnc(plainUint32[i:i+2], cipherUint32[i:i+2], key)
+            } else {
+                slice32 = cfbDec(cipherUint32[i:i+4], key)
+            }
+        } else {
+            // Electronic cookbook
+            if encOrDec {
+                slice32 = teaEncRounds([2]uint32{plainUint32[i],
+                                                 plainUint32[i+1]},
+                                       key)
+            } else {
+                slice32 = teaDecRounds([2]uint32{plainUint32[i],
+                                                 plainUint32[i+1]},
+                                       key)
+            }
+        }
+
+        // updates the new resulted ciphertext
+        cipherUint32[i+2] = slice32[0]
+        cipherUint32[i+3] = slice32[1]
+    }
+
+    imageByte = uint32ArrayToByte(cipherUint32[2:])
     return
 }
 
+
+func cfbEnc(plain []uint32, cipher []uint32, key [4]uint32) ([2]uint32) {
+
+    // encrypts the last ciphertext
+    block64 := uint32SliceTo64([2]uint32{cipher[0], cipher[1]})
+    slice32 := uint64ToUint32Slice(block64)
+
+    slice32 = teaEncRounds(slice32, key)
+
+    // xor the cipher result with the current plaintext
+    plainSlice32 := [2]uint32{plain[0], plain[1]}
+    block64 = uint32SliceTo64(plainSlice32) ^ uint32SliceTo64(slice32)
+    slice32 = uint64ToUint32Slice(block64)
+
+    return slice32
+}
+
+func cfbDec(plain []uint32, key [4]uint32) ([2]uint32) {
+
+    prevPlain := [2]uint32{plain[0], plain[1]}
+    currPlain := [2]uint32{plain[2], plain[3]}
+
+    // encrypts the last plaintext
+    block64 := uint32SliceTo64(prevPlain)
+    slice32 := uint64ToUint32Slice(block64)
+
+    slice32 = teaEncRounds(slice32, key)
+
+    // xor the cipher result with the current plaintext
+    block64 = uint32SliceTo64(currPlain) ^ uint32SliceTo64(slice32)
+    slice32 = uint64ToUint32Slice(block64)
+
+    return slice32
+}
+
+// teaEncRounds performs the encryption rounds of the TEA algorithm.
+// It receives the 2 32-bit elements to be encrypted and a key with 4 elements.
+// It returns the 2 decrypted elements.
 func teaEncRounds(image [2]uint32, key [4]uint32) ([2]uint32) {
 
     var y, z, sum, delta uint32
@@ -85,6 +150,9 @@ func teaEncRounds(image [2]uint32, key [4]uint32) ([2]uint32) {
     return [2]uint32{y, z}
 }
 
+// teaDecRounds performs the decryption rounds of the TEA algorithm.
+// It receives the 2 32-bit elements to be decrypted and a key with 4 elements.
+// It returns the 2 decrypted elements.
 func teaDecRounds(image [2]uint32, key [4]uint32) ([2]uint32) {
 
     var y, z, sum, delta uint32
@@ -102,35 +170,4 @@ func teaDecRounds(image [2]uint32, key [4]uint32) ([2]uint32) {
     }
 
     return [2]uint32{y, z}
-}
-
-func byteArrayToUint32(byteArr []byte) (uint32Arr []uint32) {
-
-    // append number 0 until byteArr length is a product of 4, so the array can
-    // be fully converted from 8-bit elements to 32-bit elements
-    for i:= 0; i < len(byteArr) % 4; i++ {
-        byteArr = append(byteArr, byte(0))
-    }
-
-    uint32Len := len(byteArr) / 4
-    uint32Arr = make([]uint32, uint32Len)
-
-    // convert every 4 8-bit elements to 1 32-bit element
-    for i := 0; i < uint32Len; i++ {
-        uint32Arr[i] = binary.BigEndian.Uint32(byteArr[i*4:i*4+4])
-    }
-
-    return
-}
-
-func uint32ArrayToByte(uint32Arr []uint32) (byteArr []byte) {
-
-    byteLen := len(uint32Arr) * 4
-    byteArr = make([]byte, byteLen)
-
-    for i := 0; i < byteLen; i += 4 {
-        binary.BigEndian.PutUint32(byteArr[i:i+4], uint32Arr[i/4])
-    }
-
-    return
 }

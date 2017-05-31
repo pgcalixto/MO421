@@ -13,7 +13,7 @@ func main() {
     var vigKey []byte
     var affineA, affineB int
     var teaKey [4]uint32
-    var resultImage []byte
+    var resultImage, resultImageECB, resultImageCFB []byte
 
     // open and read the PPM file
     width, height, maxColor, image, err := readPPMFile(fileIn)
@@ -43,13 +43,21 @@ func main() {
     } else if cipher == "tea" {
         // performs TEA encryption/decryption
         teaKey = readTeaKey()
-        resultImage = teaEnc(image, teaKey, encOrDec)
+        resultImageECB = teaEnc(image, teaKey, encOrDec, false)
+        resultImageCFB = teaEnc(image, teaKey, encOrDec, true)
     }
 
     encImage := teaEnc(image, teaKey, true)
     decImage := teaEnc(encImage, teaKey, false)
 
-    err = writePPMFile(fileOut, resultImage, width, height, maxColor)
+    if cipher != "tea" {
+        err = writePPMFile(fileOut, resultImage, width, height, maxColor)
+    } else {
+        err = writePPMFile(fileOut + "ECB", resultImageECB, width, height, maxColor)
+        checkError(err)
+        err = writePPMFile(fileOut + "CFB", resultImageCFB, width, height, maxColor)
+        checkError(err)
+    }
     checkError(err)
 }
 
