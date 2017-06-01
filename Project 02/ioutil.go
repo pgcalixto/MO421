@@ -20,22 +20,22 @@ func parseArgs() (cipher string, encOrDec bool, fileIn, fileOut string) {
 
     if vigFlag {
         if affineFlag || teaFlag {
-            exitError("Only one cipher can be used.")
+            raiseUsageError("Only one cipher can be used.")
         }
         cipher = "vigenere"
     } else if affineFlag {
         if teaFlag {
-            exitError("Only one cipher can be used.")
+            raiseUsageError("Only one cipher can be used.")
         }
         cipher = "affine"
     } else if teaFlag {
         cipher = "tea"
     } else {
-        exitError("No cipher declared.")
+        raiseUsageError("No cipher declared.")
     }
 
     if encFlag && decFlag {
-        exitError("Can only encrypt or decrypt, not both.")
+        raiseUsageError("Can only encrypt or decrypt, not both.")
     }
 
     if encFlag {
@@ -43,7 +43,7 @@ func parseArgs() (cipher string, encOrDec bool, fileIn, fileOut string) {
     } else if decFlag {
         encOrDec = false
     } else {
-        exitError("Must define if encryption or decryption.")
+        raiseUsageError("Must define if encryption or decryption.")
     }
 
     fileIn = flag.Arg(0)
@@ -123,24 +123,40 @@ func readAffineParams() (affineA, affineB int) {
     checkError(err)
 
     if affineA < 0 || affineA > 255 || affineB < 0 || affineB > 255 {
-        exitError("Numbers a and b should be between 0 and 255.\n")
+        raiseUsageError("Numbers a and b should be between 0 and 255.\n")
     }
     if gcd(affineA, 256) != 1 {
-        // exitError("First number a is not co-prime with 256.\n")
+        raiseUsageError("First number a is not co-prime with 256.\n")
     }
 
     return
 }
 
-func readTeaKey() (key [4]uint32) {
+func readTeaParams() (key [4]uint32, opMode bool) {
 
+    // reads 4 32-bit values as key
     fmt.Print("Encryption key (4 hexadecimal): ")
-    for i := 0; i < 4; i++ {
-        _, err := fmt.Scan(&key[i])
+    _, err := fmt.Scan(&key[0], &key[1], &key[2], &key[3])
+    checkError(err)
+
+    // reads operation (ECB or CFB)
+    validOp := false
+    for !validOp {
+        fmt.Println("ECB or CFB? [e/c]: ")
+
+        var opString string
+        _, err = fmt.Scan(&opString)
         checkError(err)
-        // _, err := fmt.Scanf("%s", hexString)
-        // _, err := fmt.Scanf("%v %v %v %v", &key[0], &key[1], &key[2], &key[3])
-        // checkError(err)
+        validOp = true
+
+        if opString == "e" {
+            opMode = false
+        } else if opString == "c" {
+            opMode = true
+        } else {
+            fmt.Println("Invalid option.")
+            validOp = false
+        }
     }
 
     return

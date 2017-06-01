@@ -10,31 +10,23 @@ func main() {
     // parse the arguments and checks their validity
     cipher, encOrDec, fileIn, fileOut := parseArgs()
 
-    var vigKey []byte
-    var affineA, affineB int
-    var teaKey [4]uint32
-    var resultImage, resultImageECB, resultImageCFB []byte
+    var resultImage []byte
 
     // open and read the PPM file
     width, height, maxColor, image, err := readPPMFile(fileIn)
     checkError(err)
 
-    fmt.Println(width, height, maxColor, err)
-    fmt.Println(len(image))
-
-
     if cipher == "vigenere" {
         // performs vigenere cipher encryption/decryption
-        // note: vigenere uses the same algorithm for encryption and decryption
-        vigKey = readVigenereKey()
+        key := readVigenereKey()
         if encOrDec {
-            resultImage = vigenere(image, vigKey)
+            resultImage = vigenere(image, key)
         } else {
-            resultImage = vigenere(image, vigKey)
+            resultImage = vigenere(image, key)
         }
     } else if cipher == "affine" {
         // performs affine encryption/decryption
-        affineA, affineB = readAffineParams()
+        affineA, affineB := readAffineParams()
         if encOrDec {
             resultImage = affineEnc(image, affineA, affineB)
         } else {
@@ -42,34 +34,25 @@ func main() {
         }
     } else if cipher == "tea" {
         // performs TEA encryption/decryption
-        teaKey = readTeaKey()
-        resultImageECB = teaEnc(image, teaKey, encOrDec, false)
-        resultImageCFB = teaEnc(image, teaKey, encOrDec, true)
+        teaKey, opMode := readTeaParams()
+        resultImage = teaEnc(image, teaKey, encOrDec, opMode)
     }
 
-    encImage := teaEnc(image, teaKey, true)
-    decImage := teaEnc(encImage, teaKey, false)
-
-    if cipher != "tea" {
-        err = writePPMFile(fileOut, resultImage, width, height, maxColor)
-    } else {
-        err = writePPMFile(fileOut + "ECB", resultImageECB, width, height, maxColor)
-        checkError(err)
-        err = writePPMFile(fileOut + "CFB", resultImageCFB, width, height, maxColor)
-        checkError(err)
-    }
+    err = writePPMFile(fileOut, resultImage, width, height, maxColor)
     checkError(err)
+
+    fmt.Println()
 }
 
+// Exits the program with a Go raised error
 func checkError(err error) {
     if err != nil {
         log.Fatal(err)
-        // panic(err)
     }
 }
 
-// Exit the program with error and usage messages
-func exitError(msg string) {
+// Exits the program with a custom usage messages and an error status
+func raiseUsageError(msg string) {
     log.Fatal(msg + "\nusage: python3 affine_ppm.py [-v|-a|-t] [-e|-d] a b\n\n" +
               "  affine encryption: y = a*x + b  mod 256; 0 <= a,b <= 255")
 }
